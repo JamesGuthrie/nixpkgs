@@ -742,6 +742,7 @@ mapAliases ({
   pinentry_gnome = pinentry-gnome; # added 2019-10-14
   pinentry_qt5 = pinentry-qt; # added 2020-02-11
   postgis = postgresqlPackages.postgis;
+  promscale_extension = postgresqlPackages.promscale_extension;
   # end
   privateer = throw "privateer was removed because it was broken"; # added 2021-05-18
   processing3 = processing; # added 2019-08-16

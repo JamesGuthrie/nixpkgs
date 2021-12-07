@@ -46,6 +46,8 @@ self: super: {
 
     pipelinedb = super.callPackage ./ext/pipelinedb.nix { };
 
+    promscale_extension = super.callPackage ./ext/promscale_extension.nix { };
+
     smlar = super.callPackage ./ext/smlar.nix { };
 
     temporal_tables = super.callPackage ./ext/temporal_tables.nix { };
