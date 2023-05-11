@@ -14,13 +14,12 @@
 
 let
   platforms = lib.platforms.linux ++ [ "x86_64-darwin" "aarch64-darwin" ];
-  ideaPlatforms = [ "x86_64-darwin" "i686-darwin" "i686-linux" "x86_64-linux" "aarch64-darwin" ];
+  ideaPlatforms = [ "x86_64-darwin" "i686-darwin" "i686-linux" "x86_64-linux" "aarch64-darwin" "aarch64-linux" ];
 
   inherit (stdenv.hostPlatform) system;
 
   versions = builtins.fromJSON (lib.readFile (./versions.json));
-  versionKey = if stdenv.isLinux then "linux" else system;
-  products = versions.${versionKey} or (throw "Unsupported system: ${system}");
+  products = versions.${system} or (throw "Unsupported system: ${system}");
 
   package = if stdenv.isDarwin then ./darwin.nix else ./linux.nix;
   mkJetBrainsProduct = callPackage package { inherit vmopts; };
@@ -237,6 +236,7 @@ let
       # icu is required by Rider.Backend
       extraLdPath = [ icu ];
       meta = with lib; {
+        broken = (stdenv.isLinux && stdenv.isAarch64);
         homepage = "https://www.jetbrains.com/rider/";
         inherit description license platforms;
         longDescription = ''

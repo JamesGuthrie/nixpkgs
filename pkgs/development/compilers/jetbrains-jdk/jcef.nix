@@ -74,6 +74,11 @@ let rpath = lib.makeLibraryPath [
 
 buildType = if debugBuild then "Debug" else "Release";
 
+arch =
+  if stdenv.hostPlatform.system == "aarch64-linux" then "arm64"
+  else if stdenv.hostPlatform.system == "x86_64-linux" then "x86_64"
+  else throw "Unsupported system: ${stdenv.hostPlatform.system}";
+
 in stdenv.mkDerivation rec {
   pname = "jcef-jetbrains";
   rev = "3dfde2a70f1f914c6a84ba967123a0e38f51053f";
@@ -92,16 +97,35 @@ in stdenv.mkDerivation rec {
     hash = "sha256-g8jWzRI2uYzu8O7JHENn0u9yY08fvY6g0Uym02oYUMI=";
   };
   cef-bin = let
-    fileName = "cef_binary_104.4.26+g4180781+chromium-104.0.5112.102_linux64_minimal";
-    urlName = builtins.replaceStrings ["+"] ["%2B"] fileName;
+    binary = {
+      x86_64 = {
+        fileName = "cef_binary_104.4.26+g4180781+chromium-104.0.5112.102_linux64_minimal";
+        hash = "sha256-0PAWWBR+9TO8hhejydWz8R6Df3d9A/Mb0VL8stlPz5Q=";
+      };
+      arm64 = {
+        fileName = "cef_binary_104.4.26+g4180781+chromium-104.0.5112.102_linuxarm64_minimal";
+        hash = "sha256-OGCW5H/2aPuDim3ldUASWOHwlLFD3YLeJBu2Sgx6qxs=";
+      };
+    };
+    urlName = name: builtins.replaceStrings ["+"] ["%2B"] name;
   in fetchzip rec {
-    name = fileName;
-    url = "https://cef-builds.spotifycdn.com/${urlName}.tar.bz2";
-    hash = "sha256-0PAWWBR+9TO8hhejydWz8R6Df3d9A/Mb0VL8stlPz5Q=";
+    name = binary.${arch}.fileName;
+    url = "https://cef-builds.spotifycdn.com/${urlName binary.${arch}.fileName}.tar.bz2";
+    hash = binary.${arch}.hash;
   };
   clang-fmt = fetchurl {
     url = "https://storage.googleapis.com/chromium-clang-format/942fc8b1789144b8071d3fc03ff0fcbe1cf81ac8";
     hash = "sha256-5iAU49tQmLS7zkS+6iGT+6SEdERRo1RkyRpiRvc9nVY=";
+  };
+
+  jogl-aarch64 = fetchurl {
+    url = "https://jogamp.org/deployment/v2.4.0/jar/jogl-all-natives-linux-aarch64.jar";
+    hash = "sha256-TabgGHCmA9ZyKn74HrXO5Tfi+dk7T1yPHCHSvQeiolc=";
+  };
+
+  gluegen-aarch64 = fetchurl {
+    url = "https://jogamp.org/deployment/v2.4.0/jar/gluegen-rt-natives-linux-aarch64.jar";
+    hash = "sha256-ypD/kDApaTlV7TDhNj97YKpsm1Jv5uQ9VS2Qq38Np9w=";
   };
 
   configurePhase = ''
@@ -125,10 +149,13 @@ in stdenv.mkDerivation rec {
     cp ${clang-fmt} tools/buildtools/linux64/clang-format
     chmod +w tools/buildtools/linux64/clang-format
 
+    cp ${jogl-aarch64} third_party/jogamp/jar/jogl-all-natives-linux-aarch64.jar
+    cp ${gluegen-aarch64} third_party/jogamp/jar/gluegen-rt-natives-linux-aarch64.jar
+
     mkdir jcef_build
     cd jcef_build
 
-    cmake -G "Ninja" -DPROJECT_ARCH="x86_64" -DCMAKE_BUILD_TYPE=${buildType} ..
+    cmake -G "Ninja" -DPROJECT_ARCH="${arch}" -DCMAKE_BUILD_TYPE=${buildType} ..
 
     runHook postConfigure
   '';
@@ -141,7 +168,10 @@ in stdenv.mkDerivation rec {
   '';
 
   # Mostly taken from jb/tools/common/create_modules.sh
-  installPhase = ''
+  installPhase =
+    let depsArch = if arch == "arm64" then "aarch64" else "amd64";
+    in
+    ''
     runHook preInstall
 
     export JCEF_ROOT_DIR=$(realpath ..)
@@ -149,7 +179,7 @@ in stdenv.mkDerivation rec {
     export JB_TOOLS_DIR=$(realpath ../jb/tools)
     export JB_TOOLS_OS_DIR=$JB_TOOLS_DIR/linux
     export OUT_CLS_DIR=$(realpath ../out/linux64)
-    export TARGET_ARCH=x86_64 DEPS_ARCH=amd64
+    export TARGET_ARCH=${arch} DEPS_ARCH=${depsArch}
     export OS=linux
     export JOGAMP_DIR="$JCEF_ROOT_DIR"/third_party/jogamp/jar
 

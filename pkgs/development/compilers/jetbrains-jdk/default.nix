@@ -27,6 +27,15 @@
 , udev
 }:
 
+let
+  arch =
+    if stdenv.hostPlatform.system == "aarch64-linux" then "aarch64"
+    else if stdenv.hostPlatform.system == "aarch64-darwin" then "aarch64"
+    else if stdenv.hostPlatform.system == "x86_64-linux" then "x86_64"
+    else if stdenv.hostPlatform.system == "x86_64-darwin" then "x86_64"
+    else throw "Unsupported system: ${stdenv.hostPlatform.system}";
+  shortArch = if arch == "aarch64" then "aarch64" else "x64";
+in
 openjdk17.overrideAttrs (oldAttrs: rec {
   pname = "jetbrains-jdk-jcef";
   javaVersion = "17.0.6";
@@ -57,22 +66,22 @@ openjdk17.overrideAttrs (oldAttrs: rec {
   buildPhase = ''
     runHook preBuild
 
-    mkdir -p jcef_linux_x64/jmods
-    cp ${jetbrains.jcef}/* jcef_linux_x64/jmods
+    mkdir -p jcef_linux_${shortArch}/jmods
+    cp ${jetbrains.jcef}/* jcef_linux_${shortArch}/jmods
 
     sed \
         -e "s/OPENJDK_TAG=.*/OPENJDK_TAG=${openjdkTag}/" \
         -e "s/SOURCE_DATE_EPOCH=.*//" \
         -e "s/export SOURCE_DATE_EPOCH//" \
         -i jb/project/tools/common/scripts/common.sh
-    sed -i "s/STATIC_CONF_ARGS/STATIC_CONF_ARGS \$configureFlags/" jb/project/tools/linux/scripts/mkimages_x64.sh
+    sed -i "s/STATIC_CONF_ARGS/STATIC_CONF_ARGS \$configureFlags/" jb/project/tools/linux/scripts/mkimages_${shortArch}.sh
     sed \
         -e "s/create_image_bundle \"jb/#/" \
         -e "s/echo Creating /exit 0 #/" \
-        -i jb/project/tools/linux/scripts/mkimages_x64.sh
+        -i jb/project/tools/linux/scripts/mkimages_${shortArch}.sh
 
     patchShebangs .
-    ./jb/project/tools/linux/scripts/mkimages_x64.sh ${build} ${if debugBuild then "fd" else "jcef"}
+    ./jb/project/tools/linux/scripts/mkimages_${shortArch}.sh ${build} ${if debugBuild then "fd" else "jcef"}
 
     runHook postBuild
   '';
@@ -84,9 +93,9 @@ openjdk17.overrideAttrs (oldAttrs: rec {
   in ''
     runHook preInstall
 
-    mv build/linux-x86_64-server-${buildType}/images/jdk/man build/linux-x86_64-server-${buildType}/images/jbrsdk${jcefSuffix}-${javaVersion}-linux-x64${debugSuffix}-b${build}
-    rm -rf build/linux-x86_64-server-${buildType}/images/jdk
-    mv build/linux-x86_64-server-${buildType}/images/jbrsdk${jcefSuffix}-${javaVersion}-linux-x64${debugSuffix}-b${build} build/linux-x86_64-server-${buildType}/images/jdk
+    mv build/linux-${arch}-server-${buildType}/images/jdk/man build/linux-${arch}-server-${buildType}/images/jbrsdk${jcefSuffix}-${javaVersion}-linux-${shortArch}${debugSuffix}-b${build}
+    rm -rf build/linux-${arch}-server-${buildType}/images/jdk
+    mv build/linux-${arch}-server-${buildType}/images/jbrsdk${jcefSuffix}-${javaVersion}-linux-${shortArch}${debugSuffix}-b${build} build/linux-${arch}-server-${buildType}/images/jdk
   '' + oldAttrs.installPhase + "runHook postInstall";
 
   postInstall = ''
