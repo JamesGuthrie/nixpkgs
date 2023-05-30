@@ -85,6 +85,21 @@ with stdenv; lib.makeOverridable mkDerivation (rec {
       --set ${hiName}_JDK "$jdk" \
       --set ${hiName}_VM_OPTIONS ${vmoptsFile}
 
+    makeWrapper "$out/$pname/bin/remote-dev-server.sh" "$out/bin/remote-dev-server" \
+      --prefix PATH : "$out/libexec/${pname}:${lib.makeBinPath [ jdk coreutils gnugrep which git ]}" \
+      --prefix LD_LIBRARY_PATH : "${lib.makeLibraryPath ([
+        # Some internals want libstdc++.so.6
+        stdenv.cc.cc.lib libsecret e2fsprogs
+        libnotify
+      ] ++ extraLdPath)}" \
+      ${lib.concatStringsSep " " extraWrapperArgs} \
+      --set-default JDK_HOME "$jdk" \
+      --set-default ANDROID_JAVA_HOME "$jdk" \
+      --set-default JAVA_HOME "$jdk" \
+      --set-default JETBRAINSCLIENT_JDK "$jdk" \
+      --set ${hiName}_JDK "$jdk" \
+      --set ${hiName}_VM_OPTIONS ${vmoptsFile}
+
     ln -s "$item/share/applications" $out/share
 
     runHook postInstall
